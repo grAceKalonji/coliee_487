@@ -1,0 +1,14 @@
+# COLIEE data is licensed - never commit it
+data/
+
+# Generated rankings and submissions
+runs/
+
+# Personal study notes (stage guides) - kept local only
+docs/
+
+# Python / OS junk
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
