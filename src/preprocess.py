@@ -24,6 +24,11 @@ TEST_QUERIES = DATA / "task1_test_no_labels_2026.json"
 TEST_LABELS = DATA / "task1_test_labels_2026.json"
 
 SUPPRESSED = "<FRAGMENT_SUPPRESSED>"
+# cases also write citations as FRAGMENT_SUPPRESSED, REFERENCE_SUPPRESSED or CITATION_SUPPRESSED,
+# sometimes without the brackets or glued to the next word
+CITATION_MARK = re.compile(r"<?[A-Z]*(?:FRAGMENT|REFERENCE|CITATION)_SUPPRESSED>?")
+# DATE_SUPPRESSED is a blanked-out date, not a citation: dropped from tokens, no context
+DATE_MARK = re.compile(r"<?DATE_SUPPRESSED>?")
 
 STOPWORDS = set("""
 a about above after again against all am an and any are as at be because been before
@@ -52,7 +57,7 @@ def save_json(obj, path):
         json.dump(obj, f)
 
 
-# ---- stage 1 functions (TODO) ----
+# ---- stage 1 functions ----
 
 def read_case(path):
     """Return the raw text of one case file."""
@@ -65,7 +70,7 @@ def tokenize(text):
 
     Keep SUPPRESSED out of the tokens (it's a marker, not a word).
     """
-    text = text.replace(SUPPRESSED, " ").lower()
+    text = DATE_MARK.sub(" ", CITATION_MARK.sub(" ", text)).lower()
     return [w for w in WORD.findall(text) if w not in STOPWORDS]
 
 
@@ -82,13 +87,18 @@ def extract_year(text):
 
 
 def extract_citation_contexts(text, window=50):
-    """Return one token list per <FRAGMENT_SUPPRESSED>: `window` words before + after it.
+    """Return one token list per citation marker: `window` words before + after it.
 
     These short snippets are the text the judge wrote right next to the citation,
     so they say what the cited case is about.
     """
-    # TODO (Grace)
-    raise NotImplementedError
+    # tokenize the pieces between markers, remembering where each marker fell
+    words, marks = [], []
+    for i, piece in enumerate(CITATION_MARK.split(text)):
+        if i > 0:
+            marks.append(len(words))
+        words.extend(tokenize(piece))
+    return [words[max(0, m - window):m + window] for m in marks]
 
 
 def make_dev_split(query_ids, dev_fraction=0.2, seed=2026):
