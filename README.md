@@ -50,4 +50,16 @@ runs/       rankings and submissions (ignored)
 
 ## Evaluation
 
+Prepare and validate the Task 1 dev split without running unfinished preprocessing:
+
+```bash
+python -m src.validate_data
+```
+
+This checks training query and relevant-case files, saves the seed-2026 split in
+`data/processed/split.json`, and writes counts to `runs/task1_data_audit.json`.
+All training cases remain in the retrieval pool. Dev evaluation uses the saved
+dev query IDs; missing predictions count as misses and unexpected query IDs are rejected.
+An existing split with different contents is left unchanged and reported as an error.
+
 The official COLIEE metric is **micro-averaged F1**: count true positives, false positives and false negatives over all queries, then compute precision, recall and F1 once. All tuning uses the dev split carved out of Train. Test labels are only used for final numbers.
