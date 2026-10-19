@@ -9,6 +9,7 @@ Writes:
 import json
 import random
 import re
+from collections import Counter
 from pathlib import Path
 
 # ---- shared paths + helpers (other stages import these) ----
@@ -23,6 +24,20 @@ TEST_QUERIES = DATA / "task1_test_no_labels_2026.json"
 TEST_LABELS = DATA / "task1_test_labels_2026.json"
 
 SUPPRESSED = "<FRAGMENT_SUPPRESSED>"
+
+STOPWORDS = set("""
+a about above after again against all am an and any are as at be because been before
+being below between both but by can could did do does doing down during each few for
+from further had has have having he her here hers herself him himself his how i if in
+into is it its itself just me more most my myself no nor not now of off on once only or
+other our ours ourselves out over own same she should so some such than that the their
+theirs them themselves then there these they this those through to too under until up
+very was we were what when where which while who whom why will with would you your
+yours yourself yourselves
+""".split())
+
+WORD = re.compile(r"[a-z0-9]+")
+YEAR = re.compile(r"\b(19\d{2}|20[0-2]\d)\b")
 
 
 def load_json(path):
@@ -41,8 +56,8 @@ def save_json(obj, path):
 
 def read_case(path):
     """Return the raw text of one case file."""
-    # TODO (Jack): open with encoding="utf-8", errors="ignore"
-    raise NotImplementedError
+    with open(path, encoding="utf-8", errors="ignore") as f:
+        return f.read()
 
 
 def tokenize(text):
@@ -50,8 +65,8 @@ def tokenize(text):
 
     Keep SUPPRESSED out of the tokens (it's a marker, not a word).
     """
-    # TODO (Jack)
-    raise NotImplementedError
+    text = text.replace(SUPPRESSED, " ").lower()
+    return [w for w in WORD.findall(text) if w not in STOPWORDS]
 
 
 def extract_year(text):
@@ -60,8 +75,10 @@ def extract_year(text):
     Idea: take the most common 4-digit year (1900-2026) in the first ~2,000 characters.
     Used later to drop candidates decided after the query.
     """
-    # TODO (Jack)
-    raise NotImplementedError
+    years = [int(y) for y in YEAR.findall(text[:2000]) if int(y) <= 2026]
+    if not years:
+        return None
+    return Counter(years).most_common(1)[0][0]
 
 
 def extract_citation_contexts(text, window=50):
