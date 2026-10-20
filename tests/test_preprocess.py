@@ -1,50 +1,42 @@
+import tempfile
 import unittest
+from pathlib import Path
 
-from src.preprocess import SUPPRESSED, extract_citation_contexts, tokenize
+from src.preprocess import extract_year, read_case, tokenize
 
 
-class TestTokenize(unittest.TestCase):
-    def test_lowercase_and_punctuation(self):
-        self.assertEqual(tokenize("Officer, OFFICER. officer!"), ["officer"] * 3)
+class TestPreprocess(unittest.TestCase):
+    def test_read_case_utf8_and_invalid_bytes(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "case.txt"
+            path.write_bytes("Court’s decision\n".encode("utf-8") + b"\xffappeal")
+            self.assertEqual(read_case(path), "Court’s decision\nappeal")
 
-    def test_drops_stopwords(self):
-        self.assertEqual(tokenize("the duty of the officer"), ["duty", "officer"])
+    def test_tokenize_removes_marker_punctuation_and_stopwords(self):
+        text = "The COURT cited <FRAGMENT_SUPPRESSED>, and dismissed appeal 123."
+        self.assertEqual(tokenize(text), ["court", "cited", "dismissed", "appeal", "123"])
 
-    def test_drops_marker(self):
-        self.assertEqual(tokenize(f"visa {SUPPRESSED} officer"), ["visa", "officer"])
-
-    def test_drops_other_markers(self):
-        text = "visa FRAGMENT_SUPPRESSEDand REFERENCE_SUPPRESSED, DATE_SUPPRESSED officer"
-        self.assertEqual(tokenize(text), ["visa", "officer"])
-
-    def test_empty(self):
+    def test_tokenize_empty_text(self):
         self.assertEqual(tokenize(""), [])
 
+    def test_tokenize_removes_reference_marker(self):
+        self.assertEqual(tokenize("See REFERENCE_SUPPRESSED for costs."), ["see", "costs"])
 
-class TestCitationContexts(unittest.TestCase):
-    def test_one_per_marker(self):
-        text = f"visa officer {SUPPRESSED} duty fairness {SUPPRESSED} dialogue"
-        self.assertEqual(len(extract_citation_contexts(text)), 2)
+    def test_extract_year_uses_most_common_header_year(self):
+        self.assertEqual(extract_year("2011 FC 257. March 2011. Citing 1999."), 2011)
 
-    def test_other_citation_markers(self):
-        text = "visa REFERENCE_SUPPRESSED officer CITATION_SUPPRESSED duty DATE_SUPPRESSED"
-        self.assertEqual(len(extract_citation_contexts(text)), 2)
+    def test_extract_year_ties_use_first_year(self):
+        self.assertEqual(extract_year("2011 FC 257, citing 1999"), 2011)
 
-    def test_no_markers(self):
-        self.assertEqual(extract_citation_contexts("no citations here"), [])
+    def test_extract_year_ignores_out_of_range_and_partial_years(self):
+        self.assertIsNone(extract_year("1899 2027 2030 12011 20110"))
+        self.assertEqual(extract_year("1900 and 2026 and 2026"), 2026)
 
-    def test_window(self):
-        text = f"a1 b1 c1 d1 {SUPPRESSED} e1 f1 g1"
-        self.assertEqual(extract_citation_contexts(text, window=2), [["c1", "d1", "e1", "f1"]])
+    def test_extract_year_only_checks_header(self):
+        self.assertIsNone(extract_year("x" * 2000 + " 2011"))
 
-    def test_window_at_edges(self):
-        self.assertEqual(extract_citation_contexts(f"{SUPPRESSED} visa", window=5), [["visa"]])
-
-    def test_window_crosses_other_markers(self):
-        # the second marker is skipped, not counted as a word
-        text = f"visa {SUPPRESSED} officer {SUPPRESSED} duty"
-        self.assertEqual(extract_citation_contexts(text, window=2),
-                         [["visa", "officer", "duty"], ["visa", "officer", "duty"]])
+    def test_extract_year_without_dates(self):
+        self.assertIsNone(extract_year("No date in this case."))
 
 
 if __name__ == "__main__":

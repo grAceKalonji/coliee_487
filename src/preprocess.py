@@ -68,9 +68,9 @@ def read_case(path):
 def tokenize(text):
     """Lowercase, drop punctuation and stopwords, return a list of words.
 
-    Keep SUPPRESSED out of the tokens (it's a marker, not a word).
+    Keep redacted citation markers out of the tokens (they aren't words).
     """
-    text = DATE_MARK.sub(" ", CITATION_MARK.sub(" ", text)).lower()
+    text = text.replace(SUPPRESSED, " ").replace("REFERENCE_SUPPRESSED", " ").lower()
     return [w for w in WORD.findall(text) if w not in STOPWORDS]
 
 
