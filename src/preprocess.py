@@ -70,20 +70,21 @@ def tokenize(text):
 
     Keep redacted citation markers out of the tokens (they aren't words).
     """
-    text = text.replace(SUPPRESSED, " ").replace("REFERENCE_SUPPRESSED", " ").lower()
+    text = DATE_MARK.sub(" ", CITATION_MARK.sub(" ", text)).lower()
     return [w for w in WORD.findall(text) if w not in STOPWORDS]
 
 
 def extract_year(text):
     """Best guess at the year the case was decided, or None.
 
-    Idea: take the most common 4-digit year (1900-2026) in the first ~2,000 characters.
+    Takes the LATEST 4-digit year (1900-2026) mentioned anywhere in the case.
+    A judge can only mention years up to the decision, so the latest one is
+    close to the decision year. (The old "most common year near the top" rule
+    often picked up statute years like "SC 2001" and broke the year filter.)
     Used later to drop candidates decided after the query.
     """
-    years = [int(y) for y in YEAR.findall(text[:2000]) if int(y) <= 2026]
-    if not years:
-        return None
-    return Counter(years).most_common(1)[0][0]
+    years = [int(y) for y in YEAR.findall(text) if int(y) <= 2026]
+    return max(years) if years else None
 
 
 def extract_citation_contexts(text, window=50):
